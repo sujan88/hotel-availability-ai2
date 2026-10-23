@@ -39,6 +39,9 @@ public class ChatConfig {
             .toolCallingManager(new WriteFingerprintingToolCallingManager(toolCallingManager, fingerprints, audit))
             .build();
 
-    return builder.defaultSystem(SYSTEM_PROMPT).defaultAdvisors(toolAdvisor, auditModel).build();
+    return builder
+            .defaultSystem(SYSTEM_PROMPT)
+            .defaultAdvisors(toolAdvisor, auditModel)
+            .build();
   }
 }
