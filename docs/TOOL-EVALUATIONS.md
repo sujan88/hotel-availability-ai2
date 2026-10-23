@@ -112,7 +112,7 @@ RUN_LIVE_TOOL_EVALS=false mvn \
   -Dtest=ToolSelectionEvaluatorTest,ToolSelectionCaptureIntegrationTest test
 ```
 
-Verification: 119 local Java tests passed with zero failures/errors, and the optional live-model suite was skipped (including the authentication-mode tests).
+Verification: 130 local Java tests passed with zero failures/errors, and the optional live-model suite was skipped (including authentication-mode and isolated-memory tests).
 
 No valid OpenAI key or running backend is needed. These tests use a scripted localhost model
 HTTP server and real Spring AI serialization. They validate grading, schema exposure, one-call
@@ -156,8 +156,9 @@ from the downloadable source ZIP.
 
 These are first-decision evaluations. They do not prove answer correctness, multi-turn memory,
 confirmation UI behavior, payment success, native loop limits or service retries. Those remain
-separate application concerns and existing integration tests. In particular, conversationId is
-still audit grouping, not chat memory; a standalone "Yes" does not supply earlier booking details.
+separate application concerns and integration tests. Chat now restores recent messages for an
+owned conversationId (see [memory](CHAT-MEMORY.md)); these first-decision evaluations still run
+without prior messages, so a standalone "Yes" does not supply earlier booking details here.
 
 ## Add another case
 

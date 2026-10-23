@@ -66,7 +66,8 @@ class ChatServiceTest {
     return new ChatService(
         client,
         new com.example.hotel.security.ToolExposureService(hotelTools, reservationTools),
-        audit);
+        audit,
+        new ConversationMemory(6, java.time.Duration.ofMinutes(30), 100));
   }
 
   static AssistantMessage.ToolCall call(String id, String args) {

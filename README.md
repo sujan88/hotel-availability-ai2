@@ -63,6 +63,18 @@ Every request selects tools through `ToolExposureService`; ChatClient has no sha
 Tool and integration-service checks enforce the same permissions. See [setup, policy and Postman tests](docs/TOOL-PERMISSIONS.md)
 and import [the permission collection](postman/tool-permissions.postman_collection.json).
 
+## Simple chat memory (per user and conversation)
+
+AI2 now remembers recent user/assistant text for each authenticated user's conversation.
+Omit `Conversation-Id` on the first request, then reuse the response's `conversationId` in
+that header. Other users cannot access it (403). Unknown/expired IDs return 404; omit the
+header to start again. Each request still gets fresh turn/trace IDs and tool permissions.
+
+History is **in memory, not H2**: six messages per conversation, 30-minute idle expiry,
+at most 1,000 histories; all clear on restart. There is no summarization call or extra DB table.
+See [setup and Postman examples](docs/CHAT-MEMORY.md) and
+[the memory collection](postman/chat-memory.postman_collection.json).
+
 ## Evaluate which tool the model selects
 
 There are 15 selection scenarios for tools/arguments, missing information, confirmation,
@@ -631,7 +643,7 @@ The six Python tests additionally verify replay across a fresh provider process 
 
 ## Latest validation
 
-- `mvn clean verify`: **119 local Java tests passed**, zero failures/errors; optional live-model suite skipped; executable JAR built. This includes Basic and OAuth2 authentication, signed-token validation and permission tests.
+- `mvn clean verify`: **130 local Java tests passed**, zero failures/errors; optional live-model suite skipped; executable JAR built. This includes Basic/OAuth2 authentication, permissions and isolated conversation-memory tests.
 - `python3 -m unittest discover -s mock -p 'test_*.py'`: **6 Python tests passed**, including persistent replay and concurrent provider processes.
 - All writes used isolated local mock databases; no live reservation or OpenAI call was made.
 

@@ -103,6 +103,11 @@ logging:
 
 # Select exactly one authentication mode. Basic accounts need an explicit password.
 app:
+  chat:
+    memory:
+      max-messages: ${CHAT_MEMORY_MAX_MESSAGES:6}
+      idle-ttl: ${CHAT_MEMORY_IDLE_TTL:PT30M}
+      max-conversations: ${CHAT_MEMORY_MAX_CONVERSATIONS:1000}
   security:
     mode: ${AI_AUTH_MODE:basic}
     reader-password: ${AI_READER_PASSWORD:}

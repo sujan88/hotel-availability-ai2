@@ -146,13 +146,18 @@ No raw messages, prompts, arguments, response bodies, request URLs, guest names/
 
 ## Conversations without a conversation table
 
-Send `Conversation-Id: ACTUAL_UUID` on the next chat request to reuse an audit grouping ID. The server validates the UUID format; it does not look up a database session or assign a sequence number. A syntactically valid UUID can be reused after restart. Each request still gets a new turn and trace ID.
+Omit Conversation-Id on the first request, then send `Conversation-Id: ACTUAL_UUID` to resume
+that authenticated user's conversation and audit grouping. The server validates the UUID and
+checks ownership in its in-memory registry. Unknown/expired IDs (including after restart)
+return 404. Omit the header to start fresh. Each request gets a new turn and trace ID.
 
 ```bash
 python3 scripts/read_trace.py --conversation-id COPY_CONVERSATION_ID
 ```
 
-This groups logs, not model memory. Prior messages are not automatically sent back to the model. The ID is not authentication, tenant ownership or reservation approval. Production needs trusted user/tenant authorization if these IDs are used across users.
+The [chat memory component](CHAT-MEMORY.md) now restores recent user/assistant text separately
+from audit storage. H2 audit rows cannot reconstruct it. The ID is not authentication or
+reservation approval; the current authenticated user must own the conversation.
 
 ## One database table
 

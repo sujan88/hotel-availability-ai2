@@ -100,7 +100,8 @@ application in OAuth mode. Existing Basic Auth collections are for Basic mode.
 7. **Expired, wrong issuer/audience, modified or malformed token:** 401 before model execution.
 8. **Basic credentials in OAuth mode:** 401. Switch to `AI_AUTH_MODE=basic` and restart to use them.
 
-The same token goes on each request. `Conversation-Id` groups chat logs; it is not an
+The same token goes on each request. `Conversation-Id` groups chat logs and resumes that user's
+recent [in-memory history](CHAT-MEMORY.md); ownership is checked. It is not an
 authentication credential. Verify offered/requested tools with the response trace ID:
 
 ```bash

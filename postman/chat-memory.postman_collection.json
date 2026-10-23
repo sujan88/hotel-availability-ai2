@@ -1,0 +1,229 @@
+{
+  "info": {
+    "name": "Hotel AI2 \u2014 Conversation memory",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Basic Auth examples. Set local reader/booker passwords. Run request 1 before 2/3. A real OpenAI key is needed; no hotel backend is needed for these prompts. History belongs to the authenticated user and the server-issued conversation ID."
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "readerPassword",
+      "value": ""
+    },
+    {
+      "key": "bookerPassword",
+      "value": ""
+    },
+    {
+      "key": "memoryConversationId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Start reader conversation; save ID",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chat",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Remember that my preferred hotel ID is h1. Reply briefly.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+              "if (pm.response.code === 200 && pm.response.json().conversationId) pm.collectionVariables.set(\"memoryConversationId\", pm.response.json().conversationId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Same reader + ID: recall hotel",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chat",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Conversation-Id",
+            "value": "{{memoryConversationId}}"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"What hotel ID did I mention?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Booker cannot read reader conversation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chat",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Conversation-Id",
+            "value": "{{memoryConversationId}}"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "booker",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{bookerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Show previous messages.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));",
+              "pm.test(\"Owner check\", () => pm.expect(pm.response.json().errorCode).to.eql(\"CONVERSATION_ACCESS_DENIED\"));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Reader starts separate conversation",
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/api/chat",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"What hotel ID did I mention in this conversation?\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

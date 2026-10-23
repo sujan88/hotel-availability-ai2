@@ -10,6 +10,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.model.tool.ToolCallLimitExceededException;
 import org.springframework.ai.openai.OpenAiChatOptions;
@@ -22,24 +23,38 @@ public class ChatService {
   private final ChatClient client;
   private final ToolExposureService toolExposure;
   private final AuditStore audit;
+  private final ConversationMemory memory;
 
-  public ChatService(ChatClient client, ToolExposureService toolExposure, AuditStore audit) {
+  public ChatService(
+      ChatClient client,
+      ToolExposureService toolExposure,
+      AuditStore audit,
+      ConversationMemory memory) {
     this.client = client;
     this.toolExposure = toolExposure;
     this.audit = audit;
+    this.memory = memory;
   }
 
   public ChatResult chat(
       String message, String idempotencyKey, String paymentMethodToken, String conversationId) {
-    var frame = audit.begin(conversationId);
-    try (var scope = AuditContext.open(frame)) {
-      ChatResult result = runChat(message, idempotencyKey, paymentMethodToken);
-      audit.finish(frame, result);
-      return result.withAudit(frame);
+    var conversation = memory.open(UserContext.current().username(), conversationId);
+    // Serialize turns of this conversation; other users/conversations can run independently.
+    synchronized (conversation) {
+      var frame = audit.begin(conversation.id);
+      try (var scope = AuditContext.open(frame)) {
+        ChatResult result = runChat(message, idempotencyKey, paymentMethodToken, conversation);
+        audit.finish(frame, result);
+        return result.withAudit(frame);
+      }
     }
   }
 
-  private ChatResult runChat(String message, String idempotencyKey, String paymentMethodToken) {
+  private ChatResult runChat(
+      String message,
+      String idempotencyKey,
+      String paymentMethodToken,
+      ConversationMemory.Conversation conversation) {
     if (paymentMethodToken != null && idempotencyKey == null)
       return ChatResult.failure(
           "INVALID_IDEMPOTENCY_KEY", "Payment context requires an Idempotency-Key.");
@@ -52,19 +67,29 @@ public class ChatService {
     } catch (IllegalArgumentException e) {
       return ChatResult.failure("INVALID_IDEMPOTENCY_KEY", e.getMessage());
     }
-    return execute(message, execution).withReservations(execution.results());
+    return execute(message, execution, conversation).withReservations(execution.results());
   }
 
-  private ChatResult execute(String message, ReservationExecution execution) {
+  private ChatResult execute(
+      String message,
+      ReservationExecution execution,
+      ConversationMemory.Conversation conversation) {
     try {
-      // Spring AI owns the tool loop, conversation history, and tool-call counters.
-      Object[] allowedTools = toolExposure.toolsFor(UserContext.current(), execution.canCreateReservation());
+      // Spring AI owns memory and the tool loop. Permissions and write tracking are fresh each
+      // turn.
+      Object[] allowedTools =
+          toolExposure.toolsFor(UserContext.current(), execution.canCreateReservation());
 
-      ChatClient.ChatClientRequestSpec prompt = client.prompt()
+      ChatClient.ChatClientRequestSpec prompt =
+          client
+              .prompt()
               .user(message)
-              .options(OpenAiChatOptions.builder().toolContext(Map.of(ReservationExecution.CONTEXT_KEY, execution)));
-      if (allowedTools.length > 0)
-          prompt.tools(allowedTools);
+              .advisors(conversation.advisor)
+              .advisors(a -> a.param(ChatMemory.CONVERSATION_ID, conversation.id))
+              .options(
+                  OpenAiChatOptions.builder()
+                      .toolContext(Map.of(ReservationExecution.CONTEXT_KEY, execution)));
+      if (allowedTools.length > 0) prompt.tools(allowedTools);
       ChatResponse response = prompt.call().chatResponse();
 
       if (response == null || response.getResults().size() != 1) return failed();

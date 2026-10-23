@@ -13,16 +13,18 @@ and a few fields. See the README for an example. Full fields remain in `logs/ai-
 Open `src/main/java/com/example/hotel/chat/ChatService.java`, method `chat`:
 
 ```java
-var frame = audit.begin(conversationId);        // user.message.received
+var conversation = memory.open(UserContext.current().username(), conversationId);
+var frame = audit.begin(conversation.id);       // user.message.received
 try (var scope = AuditContext.open(frame)) {
-  ChatResult result = runChat(message, idempotencyKey, paymentMethodToken);
+  ChatResult result = runChat(message, idempotencyKey, paymentMethodToken, conversation);
   audit.finish(frame, result);                 // turn.completed
   return result.withAudit(frame);
 }
 ```
 
 One HTTP chat request gets one traceId and turnId. Reuse conversationId to group several
-requests. It does not provide chat memory. The context makes these IDs available to logs
+requests and resume that authenticated user's recent in-memory chat history (see [memory](CHAT-MEMORY.md)).
+Ownership is checked before loading it. The audit context makes these IDs available to logs
 without passing them through every synchronous method.
 
 ## 2. Model call: AuditModelAdvisor
