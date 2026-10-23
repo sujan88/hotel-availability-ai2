@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+ <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+ <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+ <springProperty scope="context" name="AUDIT_FILE" source="audit.log-file" defaultValue="logs/ai-chat.jsonl"/>
+ <springProperty scope="context" name="AUDIT_MAX_SIZE" source="audit.log-max-size" defaultValue="10MB"/>
+ <springProperty scope="context" name="AUDIT_HISTORY" source="audit.log-history-days" defaultValue="14"/>
+ <springProperty scope="context" name="AUDIT_TOTAL" source="audit.log-total-size" defaultValue="200MB"/>
+ <appender name="AUDIT_JSON" class="ch.qos.logback.core.rolling.RollingFileAppender">
+  <file>${AUDIT_FILE}</file>
+  <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+   <fileNamePattern>${AUDIT_FILE}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+   <maxFileSize>${AUDIT_MAX_SIZE}</maxFileSize><maxHistory>${AUDIT_HISTORY}</maxHistory><totalSizeCap>${AUDIT_TOTAL}</totalSizeCap>
+  </rollingPolicy>
+  <encoder class="org.springframework.boot.logging.logback.StructuredLogEncoder"><format>logstash</format></encoder>
+ </appender>
+ <!-- Only the allow-listed operational/business event logger writes to the JSON file. -->
+ <!-- Compact flow on the console; the file above keeps structured JSON for investigations. -->
+ <appender name="AUDIT_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+  <encoder><pattern>%msg%n</pattern></encoder>
+ </appender>
+ <logger name="com.example.hotel.audit.AuditStore" level="INFO" additivity="false">
+  <appender-ref ref="AUDIT_JSON"/><appender-ref ref="AUDIT_CONSOLE"/>
+ </logger>
+ <root level="INFO"><appender-ref ref="CONSOLE"/></root>
+</configuration>

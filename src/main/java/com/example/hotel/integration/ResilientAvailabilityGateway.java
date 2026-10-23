@@ -1,5 +1,6 @@
-package com.example.hotel.service;
+package com.example.hotel.integration;
 
+import com.example.hotel.audit.AuditContext;
 import com.example.hotel.client.HotelApiClient;
 import com.example.hotel.dto.*;
 import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
@@ -20,20 +21,21 @@ public class ResilientAvailabilityGateway {
     this.executor = executor;
   }
 
-  @CircuitBreaker(name = "availability", fallbackMethod = "fallback")
+  @CircuitBreaker(name = "availability")
   @Retry(name = "availability")
   @TimeLimiter(name = "availability")
-  public CompletableFuture<AvailabilityResponse> search(AvailabilityRequest request) {
+  public CompletableFuture<AvailabilityResponse> search(
+      AvailabilityRequest request, AuditContext.Frame audit) {
     try {
-      return CompletableFuture.supplyAsync(() -> client.search(request), executor);
+      return CompletableFuture.supplyAsync(
+          () -> {
+            try (var scope = AuditContext.open(audit)) {
+              return client.search(request);
+            }
+          },
+          executor);
     } catch (RuntimeException e) {
       return CompletableFuture.failedFuture(e);
     }
-  }
-
-  // Preserve the final cause; the synchronous service owns safe, structured error mapping.
-  private CompletableFuture<AvailabilityResponse> fallback(
-      AvailabilityRequest request, Throwable error) {
-    return CompletableFuture.failedFuture(error);
   }
 }

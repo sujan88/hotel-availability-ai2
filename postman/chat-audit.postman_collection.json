@@ -1,0 +1,204 @@
+{
+  "info": {
+    "name": "AI2 - JSON logs and minimal business audit",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Chat returns trace IDs. Search logs/ai-chat.jsonl for full model/tool/HTTP details. GET /api/audit/events returns database business events only; search-only requests return an empty list. See docs/AUDIT.md."
+  },
+  "variable": [
+    {
+      "key": "aiUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "traceId",
+      "value": ""
+    },
+    {
+      "key": "turnId",
+      "value": ""
+    },
+    {
+      "key": "conversationId",
+      "value": ""
+    },
+    {
+      "key": "reservationId",
+      "value": ""
+    },
+    {
+      "key": "auditReadToken",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Start new audited conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-01-01 to 2027-01-02 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Audit IDs returned', () => { pm.expect(body.traceId).to.match(/^[a-f0-9]{32}$/); pm.expect(body.turnId).to.be.a('string'); });",
+              "if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);",
+              "if (body.turnId) pm.collectionVariables.set('turnId', body.turnId);",
+              "if (body.conversationId) pm.collectionVariables.set('conversationId', body.conversationId);",
+              "const reservation = (body.reservations || []).find(r => r.reservationId);",
+              "if (reservation) pm.collectionVariables.set('reservationId', reservation.reservationId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Read business audit events (full trace is in JSON logs)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{aiUrl}}/api/audit/events?traceId={{traceId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{auditReadToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Investigation read succeeded', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Next turn in the same conversation",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Conversation-Id",
+            "value": "{{conversationId}}"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-01-01 to 2027-01-02 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "const body = pm.response.json();",
+              "pm.test('Audit IDs returned', () => { pm.expect(body.traceId).to.match(/^[a-f0-9]{32}$/); pm.expect(body.turnId).to.be.a('string'); });",
+              "if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);",
+              "if (body.turnId) pm.collectionVariables.set('turnId', body.turnId);",
+              "if (body.conversationId) pm.collectionVariables.set('conversationId', body.conversationId);",
+              "const reservation = (body.reservations || []).find(r => r.reservationId);",
+              "if (reservation) pm.collectionVariables.set('reservationId', reservation.reservationId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Read business audit events (full trace is in JSON logs)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{aiUrl}}/api/audit/events?traceId={{traceId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{auditReadToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Investigation read succeeded', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Read business audit events (full trace is in JSON logs)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": "{{aiUrl}}/api/audit/events?conversationId={{conversationId}}",
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{auditReadToken}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Investigation read succeeded', () => pm.response.to.have.status(200));"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

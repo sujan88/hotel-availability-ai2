@@ -4,13 +4,17 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.example.hotel.dto.*;
-import com.example.hotel.service.AvailabilityService;
+import com.example.hotel.integration.AvailabilityService;
 import com.example.hotel.tool.HotelTools;
 import org.junit.jupiter.api.Test;
 
 class HotelToolsTest {
   private final AvailabilityService service = mock(AvailabilityService.class);
-  private final HotelTools tools = new HotelTools(service);
+  private final HotelTools tools =
+      new HotelTools(
+          service,
+          mock(com.example.hotel.integration.ReservationService.class),
+          new com.example.hotel.audit.ToolAudit(com.example.hotel.audit.TestAuditStore.create()));
 
   @Test
   void invalidDatesNeverCallService() {

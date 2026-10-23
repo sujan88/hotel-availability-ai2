@@ -6,7 +6,7 @@ import static org.mockito.Mockito.*;
 
 import com.example.hotel.config.ChatConfig;
 import com.example.hotel.dto.AvailabilityResponse;
-import com.example.hotel.service.AvailabilityService;
+import com.example.hotel.integration.AvailabilityService;
 import com.example.hotel.tool.HotelTools;
 import java.util.List;
 import org.junit.jupiter.api.*;
@@ -37,9 +37,26 @@ class ChatServiceTest {
             .maxCallsPerTool(perTool)
             .onLimitExceeded(ToolCallLimitBehavior.THROW)
             .build();
-    return new ChatService(
+    var audit = com.example.hotel.audit.TestAuditStore.create();
+    var auditTools = new com.example.hotel.audit.ToolAudit(audit);
+    var client =
         new ChatConfig()
-            .chatClient(ChatClient.builder(model), manager, new HotelTools(availability)));
+            .chatClient(
+                ChatClient.builder(model),
+                manager,
+                new HotelTools(
+                    availability,
+                    mock(com.example.hotel.integration.ReservationService.class),
+                    auditTools),
+                new com.example.hotel.reservation.ReservationFingerprint(
+                    new tools.jackson.databind.ObjectMapper()),
+                new com.example.hotel.audit.AuditModelAdvisor(audit),
+                audit);
+    return new ChatService(
+        client,
+        new com.example.hotel.tool.ReservationTools(
+            mock(com.example.hotel.integration.ReservationService.class), auditTools),
+        audit);
   }
 
   static AssistantMessage.ToolCall call(String id, String args) {
@@ -76,7 +93,7 @@ class ChatServiceTest {
                   ? done()
                   : tool(call("1", ARGS));
             });
-    assertThat(service(3, 2).chat("Search h1").success()).isTrue();
+    assertThat(service(3, 2).chat("Search h1", null, null, null).success()).isTrue();
     verify(model, times(2)).call(any(Prompt.class));
     verify(availability, times(1)).search(any());
   }
@@ -85,7 +102,7 @@ class ChatServiceTest {
   void identicalCallsAreAllowedUntilNativePerToolLimitIsReached() {
     when(model.call(any(Prompt.class)))
         .thenReturn(tool(call("1", ARGS)), tool(call("2", ARGS)), tool(call("3", ARGS)));
-    var result = service(3, 2).chat("Search h1");
+    var result = service(3, 2).chat("Search h1", null, null, null);
     assertThat(result.success()).isFalse();
     assertThat(result.errorCode()).isEqualTo("TOOL_CALL_LIMIT_EXCEEDED");
     verify(model, times(3)).call(any(Prompt.class));
@@ -96,7 +113,7 @@ class ChatServiceTest {
   void nativeTotalLimitStopsBatchAfterFirstAdmittedCall() {
     when(model.call(any(Prompt.class)))
         .thenReturn(tool(call("1", ARGS), call("2", ARGS.replace("h1", "h2"))));
-    var result = service(1, 5).chat("Search two hotels");
+    var result = service(1, 5).chat("Search two hotels", null, null, null);
     assertThat(result.errorCode()).isEqualTo("TOOL_CALL_LIMIT_EXCEEDED");
     verify(model, times(1)).call(any(Prompt.class));
     verify(availability, times(1)).search(any());
@@ -119,7 +136,7 @@ class ChatServiceTest {
               assertThat(results.get(0).getResponses()).hasSize(2);
               return done();
             });
-    assertThat(service(3, 2).chat("Search two hotels").success()).isTrue();
+    assertThat(service(3, 2).chat("Search two hotels", null, null, null).success()).isTrue();
     verify(availability, times(2)).search(any());
   }
 
@@ -127,7 +144,7 @@ class ChatServiceTest {
   void providerFailureReturnsSanitizedResponse() {
     when(model.call(any(Prompt.class)))
         .thenThrow(new IllegalStateException("private provider details"));
-    var result = service(3, 2).chat("Search");
+    var result = service(3, 2).chat("Search", null, null, null);
     assertThat(result.errorCode()).isEqualTo("CHAT_EXECUTION_FAILED");
     assertThat(result.message()).doesNotContain("private provider details");
   }
@@ -140,13 +157,13 @@ class ChatServiceTest {
             ChatGenerationMetadata.builder().finishReason("stop").build());
     when(model.call(any(Prompt.class)))
         .thenReturn(ChatResponse.builder().generations(List.of(generation)).build());
-    assertThat(service(3, 2).chat("Hello").success()).isTrue();
+    assertThat(service(3, 2).chat("Hello", null, null, null).success()).isTrue();
   }
 
   @Test
   void truncatedAnswerIsNotReportedAsSuccessful() {
     when(model.call(any(Prompt.class)))
         .thenReturn(response(new AssistantMessage("partial"), "length"));
-    assertThat(service(3, 2).chat("Search").success()).isFalse();
+    assertThat(service(3, 2).chat("Search", null, null, null).success()).isFalse();
   }
 }

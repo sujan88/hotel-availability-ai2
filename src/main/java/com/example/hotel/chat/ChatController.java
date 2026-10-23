@@ -16,7 +16,11 @@ public class ChatController {
   public record Request(@NotBlank @Size(max = 4000) String message) {}
 
   @PostMapping
-  public ChatResult chat(@Valid @RequestBody Request request) {
-    return service.chat(request.message());
+  public ChatResult chat(
+      @Valid @RequestBody Request request,
+      @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+      @RequestHeader(value = "Payment-Method-Token", required = false) String paymentMethodToken,
+      @RequestHeader(value = "Conversation-Id", required = false) String conversationId) {
+    return service.chat(request.message(), idempotencyKey, paymentMethodToken, conversationId);
   }
 }

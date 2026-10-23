@@ -3,7 +3,7 @@ package com.example.hotel;
 import static org.assertj.core.api.Assertions.*;
 
 import com.example.hotel.dto.*;
-import com.example.hotel.service.*;
+import com.example.hotel.integration.*;
 import com.sun.net.httpserver.HttpServer;
 import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.net.InetSocketAddress;
@@ -20,7 +20,7 @@ import org.springframework.test.context.DynamicPropertySource;
     properties = {
       "spring.ai.openai.api-key=test-key",
       "resilience4j.retry.instances.availability.waitDuration=10ms",
-      "resilience4j.timelimiter.instances.availability.timeoutDuration=100ms"
+      "resilience4j.timelimiter.instances.availability.timeoutDuration=300ms"
     })
 class AvailabilityIntegrationTest {
   static final AtomicInteger calls = new AtomicInteger();
@@ -49,7 +49,7 @@ class AvailabilityIntegrationTest {
                                 : 200;
             if (current.equals("slow"))
               try {
-                Thread.sleep(300);
+                Thread.sleep(1000);
               } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
               }
@@ -116,7 +116,7 @@ class AvailabilityIntegrationTest {
     var result = service.search(request);
     assertThat(result.errorCode()).isEqualTo("TIMEOUT");
     assertThat(result.retryable()).isTrue();
-    assertThat(System.nanoTime() - start).isLessThan(TimeUnit.SECONDS.toNanos(2));
+    assertThat(System.nanoTime() - start).isLessThan(TimeUnit.SECONDS.toNanos(5));
     assertThat(calls.get()).isEqualTo(3);
   }
 

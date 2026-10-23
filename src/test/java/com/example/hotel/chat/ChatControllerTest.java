@@ -11,7 +11,7 @@ class ChatControllerTest {
   @Test
   void serializesControlledFailure() throws Exception {
     var service = mock(ChatService.class);
-    when(service.chat("Search"))
+    when(service.chat("Search", null, null, null))
         .thenReturn(
             ChatResult.failure("TOOL_CALL_LIMIT_EXCEEDED", "The tool-call limit was reached."));
     MockMvcBuilders.standaloneSetup(new ChatController(service))

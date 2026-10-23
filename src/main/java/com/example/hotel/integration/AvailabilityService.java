@@ -1,5 +1,7 @@
-package com.example.hotel.service;
+package com.example.hotel.integration;
 
+import com.example.hotel.audit.AuditContext;
+import com.example.hotel.audit.AuditStore;
 import com.example.hotel.dto.*;
 import com.example.hotel.exception.*;
 import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
@@ -20,9 +22,10 @@ public class AvailabilityService {
   }
 
   public AvailabilityResponse search(AvailabilityRequest request) {
+    AuditStore.serviceCall("AvailabilityService.search");
     AvailabilityResponse result;
     try {
-      result = gateway.search(request).get();
+      result = gateway.search(request, AuditContext.current()).get();
     } catch (InterruptedException e) {
       Thread.currentThread().interrupt();
       result = failure("INTERRUPTED", true);

@@ -1,4 +1,12 @@
 spring:
+  datasource:
+    url: ${AUDIT_DB_URL:jdbc:h2:file:./data/business-audit;DB_CLOSE_ON_EXIT=FALSE}
+    username: sa
+    password: ${AUDIT_DB_PASSWORD:}
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:audit-schema.sql
   application:
     name: hotel-availability-ai2
   ai:
@@ -6,6 +14,8 @@ spring:
       limits:
         max-total-tool-calls: 3
         max-calls-per-tool-default: 2
+        max-calls-per-tool:
+          createReservation: 2
         on-limit-exceeded: THROW
     openai:
       api-key: ${OPENAI_API_KEY}
@@ -31,6 +41,15 @@ resilience4j:
           - com.example.hotel.exception.AvailabilityBadRequestException
           - com.example.hotel.exception.AvailabilityUpstreamException
           - org.springframework.core.task.TaskRejectedException
+      reservation:
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
+        failureRateThreshold: 50
+        waitDurationInOpenState: 20s
+        permittedNumberOfCallsInHalfOpenState: 3
+        ignoreExceptions:
+          - com.example.hotel.exception.ReservationRejectedException
+          - org.springframework.core.task.TaskRejectedException
   retry:
     retryAspectOrder: 2
     instances:
@@ -42,10 +61,21 @@ resilience4j:
         retryExceptions:
           - com.example.hotel.exception.AvailabilityTransientException
           - java.util.concurrent.TimeoutException
+      reservation:
+        maxAttempts: 3
+        waitDuration: 200ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+        retryExceptions:
+          - com.example.hotel.exception.ReservationTransientException
+          - java.util.concurrent.TimeoutException
   timelimiter:
     timeLimiterAspectOrder: 3
     instances:
       availability:
+        timeoutDuration: 2s
+        cancelRunningFuture: true
+      reservation:
         timeoutDuration: 2s
         cancelRunningFuture: true
 management:
@@ -58,3 +88,15 @@ management:
       show-details: never
 server:
   shutdown: graceful
+
+audit:
+  log-file: ${AUDIT_LOG_FILE:logs/ai-chat.jsonl}
+  log-max-size: ${AUDIT_LOG_MAX_SIZE:10MB}
+  log-history-days: ${AUDIT_LOG_HISTORY_DAYS:14}
+  log-total-size: ${AUDIT_LOG_TOTAL_SIZE:200MB}
+  read-api-enabled: ${AUDIT_READ_API_ENABLED:true}
+  # Optional bearer token for the investigation API; never a token for /api/chat.
+  read-token: ${AUDIT_READ_TOKEN:}
+logging:
+  pattern:
+    level: "%5p [trace=%X{traceId:-} turn=%X{turnId:-} tool=%X{toolCallId:-}]"

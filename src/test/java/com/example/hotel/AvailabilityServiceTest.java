@@ -5,8 +5,8 @@ import static org.mockito.Mockito.*;
 
 import com.example.hotel.dto.AvailabilityRequest;
 import com.example.hotel.dto.AvailabilityResponse;
-import com.example.hotel.service.AvailabilityService;
-import com.example.hotel.service.ResilientAvailabilityGateway;
+import com.example.hotel.integration.AvailabilityService;
+import com.example.hotel.integration.ResilientAvailabilityGateway;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.LocalDate;
 import java.util.concurrent.CompletableFuture;
@@ -22,7 +22,7 @@ class AvailabilityServiceTest {
 
   @Test
   void rejectedExecutorProducesBusyAndMetric() {
-    when(gateway.search(request))
+    when(gateway.search(request, null))
         .thenReturn(CompletableFuture.failedFuture(new RejectedExecutionException()));
     assertThat(service.search(request).errorCode()).isEqualTo("BUSY");
     assertThat(meters.get("hotel.availability.results").tag("outcome", "BUSY").counter().count())
@@ -31,7 +31,7 @@ class AvailabilityServiceTest {
 
   @Test
   void interruptFlagIsRestored() {
-    when(gateway.search(request)).thenReturn(new CompletableFuture<AvailabilityResponse>());
+    when(gateway.search(request, null)).thenReturn(new CompletableFuture<AvailabilityResponse>());
     Thread.currentThread().interrupt();
     try {
       assertThat(service.search(request).errorCode()).isEqualTo("INTERRUPTED");

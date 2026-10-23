@@ -4,7 +4,7 @@ import static org.assertj.core.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 import com.example.hotel.dto.AvailabilityResponse;
-import com.example.hotel.service.AvailabilityService;
+import com.example.hotel.integration.AvailabilityService;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.*;
@@ -69,7 +69,7 @@ class NativeTotalLimitIntegrationTest {
     assertThat(properties.getLimits().getMaxCallsPerToolDefault()).isEqualTo(5);
     when(availability.search(any())).thenReturn(AvailabilityResponse.success(List.of()));
     for (int request = 0; request < 2; request++) {
-      var result = service.chat("Search hotels");
+      var result = service.chat("Search hotels", null, null, null);
       assertThat(result.errorCode()).isEqualTo("TOOL_CALL_LIMIT_EXCEEDED");
     }
     assertThat(model.calls.get()).isEqualTo(4);
