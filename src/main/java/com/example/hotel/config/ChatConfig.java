@@ -35,10 +35,8 @@ public class ChatConfig {
       AuditStore audit) {
     // Use Spring AI's auto-configured manager so application.yml native limits apply.
 
-    ToolCallingAdvisor toolAdvisor =
-        ToolCallingAdvisor.builder()
-            .toolCallingManager(
-                new WriteFingerprintingToolCallingManager(toolCallingManager, fingerprints, audit))
+    ToolCallingAdvisor toolAdvisor = ToolCallingAdvisor.builder()
+            .toolCallingManager(new WriteFingerprintingToolCallingManager(toolCallingManager, fingerprints, audit))
             .build();
 
     return builder.defaultSystem(SYSTEM_PROMPT).defaultAdvisors(toolAdvisor, auditModel).build();
