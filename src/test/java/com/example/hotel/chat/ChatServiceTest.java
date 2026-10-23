@@ -17,6 +17,9 @@ import org.springframework.ai.chat.model.*;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.model.tool.*;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 class ChatServiceTest {
   private final ChatModel model = mock(ChatModel.class);
@@ -26,6 +29,12 @@ class ChatServiceTest {
 
   @BeforeEach
   void setup() {
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            UsernamePasswordAuthenticationToken.authenticated(
+                "test",
+                "test",
+                AuthorityUtils.createAuthorityList("HOTEL_READ", "RESERVATION_CREATE")));
     when(model.getOptions()).thenReturn(OpenAiChatOptions.builder().build());
     when(availability.search(any())).thenReturn(AvailabilityResponse.success(List.of()));
   }
@@ -39,23 +48,24 @@ class ChatServiceTest {
             .build();
     var audit = com.example.hotel.audit.TestAuditStore.create();
     var auditTools = new com.example.hotel.audit.ToolAudit(audit);
+    var hotelTools =
+        new HotelTools(
+            availability, mock(com.example.hotel.integration.ReservationService.class), auditTools);
+    var reservationTools =
+        new com.example.hotel.tool.ReservationTools(
+            mock(com.example.hotel.integration.ReservationService.class), auditTools);
     var client =
         new ChatConfig()
             .chatClient(
                 ChatClient.builder(model),
                 manager,
-                new HotelTools(
-                    availability,
-                    mock(com.example.hotel.integration.ReservationService.class),
-                    auditTools),
                 new com.example.hotel.reservation.ReservationFingerprint(
                     new tools.jackson.databind.ObjectMapper()),
                 new com.example.hotel.audit.AuditModelAdvisor(audit),
                 audit);
     return new ChatService(
         client,
-        new com.example.hotel.tool.ReservationTools(
-            mock(com.example.hotel.integration.ReservationService.class), auditTools),
+        new com.example.hotel.security.ToolExposureService(hotelTools, reservationTools),
         audit);
   }
 
@@ -80,6 +90,11 @@ class ChatServiceTest {
                     output, ChatGenerationMetadata.builder().finishReason(finish).build())))
         .metadata(ChatResponseMetadata.builder().usage(new DefaultUsage(100, 20)).build())
         .build();
+  }
+
+  @org.junit.jupiter.api.AfterEach
+  void clearAuthentication() {
+    SecurityContextHolder.clearContext();
   }
 
   @Test

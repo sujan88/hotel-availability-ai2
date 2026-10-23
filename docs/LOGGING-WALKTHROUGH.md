@@ -36,13 +36,14 @@ answer are normally two model calls.
 `ChatConfig` registers the model advisor once:
 
 ```java
-.defaultTools(tools)
 .defaultAdvisors(toolAdvisor, auditModel)
 ```
 
 `toolAdvisor` is Spring AI's tool execution loop; `auditModel` only observes model calls.
-The booking tool is added by `ChatService` with `prompt.tools(reservationTools)` only when
-there is a valid client Idempotency-Key.
+There are no default tools. `ChatService` calls
+`toolExposure.toolsFor(UserContext.current(), execution.canCreateReservation())` and adds
+only that request's allowed tools with `prompt.tools(allowedTools)`. Booking requires both
+RESERVATION_CREATE permission and a valid client Idempotency-Key. See [the permission guide](TOOL-PERMISSIONS.md).
 
 ## 3. Tool method: HotelTools / ReservationTools
 
@@ -98,7 +99,8 @@ A search writes no audit rows. `/api/audit/events` reads that business table, no
 
 ## Read one search request
 
-POST `http://localhost:8080/api/chat` in Postman, JSON body:
+Authenticate in Postman with Basic Auth (`reader` or `booker` and your configured password),
+then POST `http://localhost:8080/api/chat`, JSON body:
 
 ```json
 {"message":"Use searchAvailability for hotel h1 from 2027-04-10 to 2027-04-11 for 2 guests."}

@@ -1,0 +1,365 @@
+{
+  "info": {
+    "name": "AI2 - authenticated dynamic tools",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Set the three local password variables after configuring AI_READER_PASSWORD, AI_BOOKER_PASSWORD, AI_CHAT_PASSWORD. Searches require a valid OpenAI key and backend on 9090. Compare availableTools in model.call JSON logs using each returned traceId. These requests do not request booking creation. See docs/TOOL-PERMISSIONS.md."
+  },
+  "variable": [
+    {
+      "key": "aiUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "readerPassword",
+      "value": ""
+    },
+    {
+      "key": "bookerPassword",
+      "value": ""
+    },
+    {
+      "key": "chatPassword",
+      "value": ""
+    },
+    {
+      "key": "traceId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Missing credentials -> 401",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "noauth"
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hello\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 401', () => pm.response.to.have.status(401));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Reader -> read tools only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "permission-demo-001"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-04-10 to 2027-04-11 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Reader cannot bypass through direct booking API -> 403",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Idempotency-Key",
+            "value": "permission-demo-001"
+          }
+        ],
+        "url": "{{aiUrl}}/api/reservations",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 403', () => pm.response.to.have.status(403));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Booker without key -> read tools only",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "booker",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{bookerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-04-10 to 2027-04-11 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Booker with key -> booking tool also available",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "permission-demo-001"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "booker",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{bookerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-04-10 to 2027-04-11 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Chat-only account -> no tools",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "chat",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{chatPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Hello\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "7. Reader again -> write tool does not leak",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          },
+          {
+            "key": "Idempotency-Key",
+            "value": "permission-demo-001"
+          }
+        ],
+        "url": "{{aiUrl}}/api/chat",
+        "auth": {
+          "type": "basic",
+          "basic": [
+            {
+              "key": "username",
+              "value": "reader",
+              "type": "string"
+            },
+            {
+              "key": "password",
+              "value": "{{readerPassword}}",
+              "type": "string"
+            }
+          ]
+        },
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"message\": \"Search availability at hotel h1 from 2027-04-10 to 2027-04-11 for 2 guests.\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Expected HTTP 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json(); if (body.traceId) pm.collectionVariables.set('traceId', body.traceId);"
+            ]
+          }
+        }
+      ]
+    }
+  ]
+}

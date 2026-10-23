@@ -34,6 +34,8 @@ import tools.jackson.databind.*;
       "resilience4j.retry.instances.reservation.waitDuration=5ms"
     })
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class AuditFlowIntegrationTest {
   static final ObjectMapper JSON = new ObjectMapper();
   static volatile String mode = "success";
@@ -257,6 +259,14 @@ class AuditFlowIntegrationTest {
   JsonNode chat(String conversation, boolean write) throws Exception {
     var request =
         post("/api/chat")
+            .with(
+                org.springframework.security.test.web.servlet.request
+                    .SecurityMockMvcRequestPostProcessors.user("test")
+                    .authorities(
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                            "HOTEL_READ"),
+                        new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                            "RESERVATION_CREATE")))
             .contentType("application/json")
             .content("{\"message\":\"DO_NOT_PERSIST_PRIVATE_MESSAGE\"}");
     if (conversation != null) request.header("Conversation-Id", conversation);

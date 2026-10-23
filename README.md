@@ -9,6 +9,44 @@ Java 17+, Maven 3.9+, Spring Boot 4.1.1, Spring AI 2.0.1, Resilience4j 2.4.0 (Bo
 
 This project implements three separate protections: Spring AI native limits control tool-call quantity; orchestration fingerprints reject identical reservation write calls in the current execution; backend idempotency prevents repeated HTTP requests from creating another booking. Native tool counts still belong to Spring AI. No custom model-call, token/cost or overall execution budget has been added. The original Spring AI 1.1 project is a separate copy.
 
+## Two-page interview recall guide
+
+Read the [visual interview guide](docs/INTERVIEW-GUIDE.pdf): architecture, tool permissions,
+resilience, booking state, logs/audit and model evaluations, with small code examples and
+production boundaries. Mental model: **model proposes; application authorizes; backend commits**.
+
+## Authentication and dynamic tools
+
+**Chat and direct reservation requests now require Basic Auth.** Before starting AI2, set
+`AI_BOOKER_PASSWORD` to your own local password. In Postman choose Authorization -> Basic Auth,
+username `booker`, and that password. Reader and chat-only accounts can be configured separately.
+An unset account password disables that account; there are no default credentials.
+
+| Account | Tools |
+|---|---|
+| reader | Search availability and read reservation status |
+| booker | Read tools, plus booking when a valid Idempotency-Key is supplied |
+| chat | No tools |
+
+Every request selects tools through `ToolExposureService`; ChatClient has no shared default tools.
+Tool and integration-service checks enforce the same permissions. See [setup, policy and Postman tests](docs/TOOL-PERMISSIONS.md)
+and import [the permission collection](postman/tool-permissions.postman_collection.json).
+
+## Evaluate which tool the model selects
+
+There are 15 selection scenarios for tools/arguments, missing information, confirmation,
+forbidden actions, permissions and no-tool messages such as "Thanks". See
+[Tool Selection Evaluations](docs/TOOL-EVALUATIONS.md) for the case record, expected behavior
+and commands. Ordinary tests use a local fake model and never call live OpenAI.
+
+```bash
+# Optional real-model evaluation: API usage, but no tool/backend execution
+RUN_LIVE_TOOL_EVALS=true mvn -Dtest=LiveToolSelectionEvalTest test
+```
+
+Set a valid OPENAI_API_KEY first. Results go to `target/tool-evals/results.jsonl`.
+The live suite is opt-in; local passing tests validate the evaluator, not LLM quality.
+
 ## Read the request flow on the console
 
 Console audit lines now start with uppercase layer names. You can follow one request
@@ -37,7 +75,7 @@ Restart AI2 after updating to see the new console format.
 ## Learn where logs are added
 
 Start with [the short logging walkthrough](docs/LOGGING-WALKTHROUGH.md). Tool registration now
-uses `.defaultTools(tools)`. Each `@Tool` method explicitly calls
+uses `prompt.tools(allowedTools)` for each authenticated request. Each `@Tool` method explicitly calls
 `audit.log("toolName", () -> { ... })`; there is no custom tool callback decorator.
 
 | Layer | Start reading | Events / output |
@@ -108,6 +146,7 @@ mvn spring-boot:run
 cd hotel-availability-ai2
 export HOTEL_API_BASE_URL='http://localhost:9090'
 export OPENAI_API_KEY='your-valid-key'
+export AI_BOOKER_PASSWORD='choose-your-own-local-password'
 mvn spring-boot:run
 ```
 
@@ -159,6 +198,7 @@ macOS/Linux:
 ```bash
 export HOTEL_API_BASE_URL='http://localhost:9090'
 export OPENAI_API_KEY='your-key'
+export AI_BOOKER_PASSWORD='choose-your-own-local-password'
 mvn spring-boot:run
 ```
 
@@ -167,6 +207,7 @@ Windows PowerShell:
 ```powershell
 $env:HOTEL_API_BASE_URL = 'http://localhost:9090'
 $env:OPENAI_API_KEY = 'your-key'
+$env:AI_BOOKER_PASSWORD = 'choose-your-own-local-password'
 mvn spring-boot:run
 ```
 
@@ -230,7 +271,7 @@ spring:
 - `max-calls-per-tool-default`: maximum invocations of each tool by name, whether arguments are the same or different.
 - `on-limit-exceeded: THROW`: stops the native loop at the breached limit. The application maps Spring AI's native limit finish reason to a failed chat response.
 
-Spring AI reconstructs counts from the current turn's conversation history. A new HTTP chat request starts a fresh turn and resets counts. No application counter tracks them. Both `searchAvailability` and `createReservation` allow at most two calls by default, subject to the shared cap of three. A reservation tool is attached to a chat request only when the client supplies an `Idempotency-Key` header. Identical reservation writes can be rejected earlier by fingerprinting.
+Spring AI reconstructs counts from the current turn's conversation history. A new HTTP chat request starts a fresh turn and resets counts. No application counter tracks them. Both `searchAvailability` and `createReservation` allow at most two calls by default, subject to the shared cap of three. A reservation tool is attached only when the authenticated account has RESERVATION_CREATE and the client supplies a valid `Idempotency-Key` header. Identical reservation writes can be rejected earlier by fingerprinting.
 
 To override one tool, add a native per-tool setting:
 
@@ -559,7 +600,7 @@ The six Python tests additionally verify replay across a fresh provider process 
 
 ## Latest validation
 
-- `mvn clean verify`: **83 Java tests passed**, zero failures/errors; executable JAR built.
+- `mvn clean verify`: **110 local Java tests passed**, zero failures/errors; optional live-model suite skipped; executable JAR built.
 - `python3 -m unittest discover -s mock -p 'test_*.py'`: **6 Python tests passed**, including persistent replay and concurrent provider processes.
 - All writes used isolated local mock databases; no live reservation or OpenAI call was made.
 
@@ -652,7 +693,7 @@ Read the application in this order:
 |---|---|
 | `chat/ChatController` -> `ChatService` | Accept chat input, supply backend-only context and call Spring AI |
 | `tool/HotelTools` | Synchronous availability and reservation status read tools |
-| `tool/ReservationTools` | Synchronous booking tool; exposed only with a valid operation key |
+| `tool/ReservationTools` | Synchronous booking tool; exposed only with create permission and a valid operation key |
 | `integration/*Service` | Convert final service results/failures into safe structured responses |
 | `integration/Resilient*Gateway` | Async boundary with Resilience4j retry, timeout and circuit breaker |
 | `client/HotelApiClient` | Make HTTP requests to the selected Java backend or Python mock |
@@ -661,6 +702,7 @@ Read the application in this order:
 | `reservation/WriteFingerprintingToolCallingManager` | Reject duplicate writes before Spring AI dispatches them; native limits stay in Spring AI |
 | `reservation/ReservationController` | Direct create/status APIs for deterministic testing without a model |
 | `config/HotelApiConfig` | HTTP client and separate bounded availability/reservation executors |
+| `security/ToolExposureService`, `UserContext`, `config/SecurityConfig` | Per-request tool policy, authenticated permissions and local Basic Auth |
 | `config/ChatConfig`, `ResilienceLogging` | Model/tool configuration and resilience event logging |
 | `audit/ToolAudit` | Called directly by each tool to log start, typed result and completion |
 | `audit/AuditModelAdvisor` | Logs each model call inside the native tool loop |

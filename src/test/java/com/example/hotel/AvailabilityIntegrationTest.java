@@ -22,6 +22,8 @@ import org.springframework.test.context.DynamicPropertySource;
       "resilience4j.retry.instances.availability.waitDuration=10ms",
       "resilience4j.timelimiter.instances.availability.timeoutDuration=300ms"
     })
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class AvailabilityIntegrationTest {
   static final AtomicInteger calls = new AtomicInteger();
   static volatile String mode = "success";

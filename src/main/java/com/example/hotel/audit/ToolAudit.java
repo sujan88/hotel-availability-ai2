@@ -2,8 +2,10 @@ package com.example.hotel.audit;
 
 import com.example.hotel.dto.AvailabilityResponse;
 import com.example.hotel.dto.ReservationResponse;
+import com.example.hotel.security.UserContext;
 import java.util.Set;
 import java.util.function.Supplier;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 /** Called explicitly by each @Tool method: start log, run the method, finish log. */
@@ -16,17 +18,27 @@ public class ToolAudit {
   }
 
   public <T> T log(String toolName, Supplier<T> action) {
+    Supplier<T> authorizedAction =
+        () -> {
+          UserContext.current().requireTool(toolName);
+          return action.get();
+        };
     var frame = AuditContext.current();
-    if (frame == null) return action.get(); // Direct Java calls outside chat have no turn.
+    if (frame == null)
+      return authorizedAction.get(); // Direct Java calls outside chat have no turn.
     var span = store.startTool(frame, toolName);
     var toolFrame = frame.withTool(span.id());
     try (var scope = AuditContext.open(toolFrame)) {
       frame.turn().toolInvoked(span.id());
       T result;
       try {
-        result = action.get();
+        result = authorizedAction.get();
       } catch (RuntimeException e) {
-        store.finishTool(frame, span, "FAILED", "TOOL_EXECUTION_FAILED");
+        store.finishTool(
+            frame,
+            span,
+            "FAILED",
+            e instanceof AccessDeniedException ? "TOOL_ACCESS_DENIED" : "TOOL_EXECUTION_FAILED");
         throw e;
       }
       // Read typed results, never parse or log raw tool JSON, guest details or payment tokens.

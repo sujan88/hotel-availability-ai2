@@ -39,11 +39,13 @@ public class AuditModelAdvisor implements CallAdvisor {
       span.fields()
           .put(
               "availableTools",
-              options.getToolCallbacks().stream()
-                  .map(callback -> callback.getToolDefinition().name())
-                  .distinct()
-                  .sorted()
-                  .toList());
+              options.getToolCallbacks() == null
+                  ? java.util.List.of()
+                  : options.getToolCallbacks().stream()
+                      .map(callback -> callback.getToolDefinition().name())
+                      .distinct()
+                      .sorted()
+                      .toList());
     frame.turn().lastModelCallId = span.id();
     try (var scope = AuditContext.open(frame.withModel(span.id()))) {
       try {

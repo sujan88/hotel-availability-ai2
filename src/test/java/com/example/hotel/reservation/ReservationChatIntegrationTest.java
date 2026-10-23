@@ -32,6 +32,8 @@ import tools.jackson.databind.ObjectMapper;
       "resilience4j.retry.instances.reservation.waitDuration=10ms"
     })
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class ReservationChatIntegrationTest {
   static final MockHotelProcess provider = MockHotelProcess.start();
   static final RestClient admin = RestClient.create(provider.baseUrl);
@@ -154,6 +156,14 @@ class ReservationChatIntegrationTest {
   String invoke(String operationKey) throws Exception {
     return mvc.perform(
             post("/api/chat")
+                .with(
+                    org.springframework.security.test.web.servlet.request
+                        .SecurityMockMvcRequestPostProcessors.user("test")
+                        .authorities(
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "HOTEL_READ"),
+                            new org.springframework.security.core.authority.SimpleGrantedAuthority(
+                                "RESERVATION_CREATE")))
                 .header("Idempotency-Key", operationKey)
                 .contentType("application/json")
                 .content(

@@ -100,3 +100,10 @@ audit:
 logging:
   pattern:
     level: "%5p [trace=%X{traceId:-} turn=%X{turnId:-} tool=%X{toolCallId:-}]"
+
+# Accounts are disabled until their password is explicitly configured.
+app:
+  security:
+    reader-password: ${AI_READER_PASSWORD:}
+    booker-password: ${AI_BOOKER_PASSWORD:}
+    chat-password: ${AI_CHAT_PASSWORD:}

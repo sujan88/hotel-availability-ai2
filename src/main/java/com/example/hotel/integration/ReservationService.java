@@ -9,6 +9,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.*;
 import org.slf4j.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -22,6 +23,7 @@ public class ReservationService {
     this.meters = meters;
   }
 
+  @PreAuthorize("hasAuthority('RESERVATION_CREATE')")
   public ReservationResponse create(ReservationRequest request, String key) {
     AuditStore.serviceCall("ReservationService.create");
     try {
@@ -78,6 +80,7 @@ public class ReservationService {
     return response;
   }
 
+  @PreAuthorize("hasAuthority('HOTEL_READ')")
   public ReservationResponse status(String id) {
     AuditStore.serviceCall("ReservationService.status");
     try {

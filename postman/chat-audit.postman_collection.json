@@ -2,7 +2,7 @@
   "info": {
     "name": "AI2 - JSON logs and minimal business audit",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Chat returns trace IDs. Search logs/ai-chat.jsonl for full model/tool/HTTP details. GET /api/audit/events returns database business events only; search-only requests return an empty list. See docs/AUDIT.md."
+    "description": "Chat returns trace IDs. Search logs/ai-chat.jsonl for full model/tool/HTTP details. GET /api/audit/events returns database business events only; search-only requests return an empty list. See docs/AUDIT.md. Chat requires Basic Auth: configure AI_BOOKER_PASSWORD, then set aiPassword locally in Postman. See docs/TOOL-PERMISSIONS.md."
   },
   "variable": [
     {
@@ -27,6 +27,14 @@
     },
     {
       "key": "auditReadToken",
+      "value": ""
+    },
+    {
+      "key": "aiUsername",
+      "value": "booker"
+    },
+    {
+      "key": "aiPassword",
       "value": ""
     }
   ],
@@ -200,5 +208,20 @@
         }
       ]
     }
-  ]
+  ],
+  "auth": {
+    "type": "basic",
+    "basic": [
+      {
+        "key": "username",
+        "value": "{{aiUsername}}",
+        "type": "string"
+      },
+      {
+        "key": "password",
+        "value": "{{aiPassword}}",
+        "type": "string"
+      }
+    ]
+  }
 }

@@ -8,6 +8,7 @@ import io.github.resilience4j.circuitbreaker.CallNotPermittedException;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.concurrent.*;
 import org.slf4j.*;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -21,6 +22,7 @@ public class AvailabilityService {
     this.meters = meters;
   }
 
+  @PreAuthorize("hasAuthority('HOTEL_READ')")
   public AvailabilityResponse search(AvailabilityRequest request) {
     AuditStore.serviceCall("AvailabilityService.search");
     AvailabilityResponse result;

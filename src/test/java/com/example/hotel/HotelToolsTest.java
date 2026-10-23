@@ -7,6 +7,9 @@ import com.example.hotel.dto.*;
 import com.example.hotel.integration.AvailabilityService;
 import com.example.hotel.tool.HotelTools;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.AuthorityUtils;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 class HotelToolsTest {
   private final AvailabilityService service = mock(AvailabilityService.class);
@@ -15,6 +18,21 @@ class HotelToolsTest {
           service,
           mock(com.example.hotel.integration.ReservationService.class),
           new com.example.hotel.audit.ToolAudit(com.example.hotel.audit.TestAuditStore.create()));
+
+  @org.junit.jupiter.api.BeforeEach
+  void authenticate() {
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            UsernamePasswordAuthenticationToken.authenticated(
+                "test",
+                "test",
+                AuthorityUtils.createAuthorityList("HOTEL_READ", "RESERVATION_CREATE")));
+  }
+
+  @org.junit.jupiter.api.AfterEach
+  void clearAuthentication() {
+    SecurityContextHolder.clearContext();
+  }
 
   @Test
   void invalidDatesNeverCallService() {

@@ -1,5 +1,9 @@
 # Logs first, one small business-audit table
 
+Chat/reservation endpoints now require Basic Auth and select tools from server-authenticated
+permissions. See [TOOL-PERMISSIONS.md](TOOL-PERMISSIONS.md) before using the chat examples below.
+The audit-read API keeps its separate loopback / optional Bearer-token policy.
+
 Audit and observability live in **standalone AI2**. Operational details go to structured JSON application logs. The database has **one table: `reservation_audit`**, used only for booking-write outcomes observed by AI2.
 
 | Information | Storage |
@@ -278,7 +282,7 @@ python3 scripts/read_trace.py --trace-id COPY_TRACE_ID   --event model.call --ev
 
 Troubleshooting a booking that only searches or asks for confirmation:
 
-- `availableTools` has no `createReservation`: verify that the chat request supplied a valid `Idempotency-Key`. Booking tools are conditional; read tools are always available.
+- `availableTools` has no `createReservation`: verify both RESERVATION_CREATE permission and a valid `Idempotency-Key`. Booking tools are conditional; read tools are always available.
 - `requestedTools: []` and `toolsCalled: []`: the model returned text without calling a tool. No tool name should be invented for that request.
 - `toolsCalled` contains only `searchAvailability`: availability ran, but booking/payment validation was not reached.
 - A requested write was rejected: check `tool.call` status/error and `audit.event` for duplicate or limit handling.

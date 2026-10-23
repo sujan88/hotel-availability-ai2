@@ -26,6 +26,8 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest(properties = {"spring.ai.model.chat=none", "spring.ai.openai.api-key=test-key"})
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class PaymentFlowIntegrationTest {
   static final String TOKEN = "pm_private_simulated_token";
   static final AtomicReference<String> sent = new AtomicReference<>();

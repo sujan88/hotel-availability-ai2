@@ -25,6 +25,8 @@ import tools.jackson.databind.ObjectMapper;
       "resilience4j.retry.instances.reservation.waitDuration=10ms"
     })
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class ReservationIntegrationTest {
   static final MockHotelProcess provider = MockHotelProcess.start();
   static final RestClient admin = RestClient.create(provider.baseUrl);
@@ -110,7 +112,9 @@ class ReservationIntegrationTest {
 
   @Test
   void concurrentClientsWithSameKeyCreateOneSideEffect() throws Exception {
-    var workers = Executors.newFixedThreadPool(4);
+    var workers =
+        new org.springframework.security.concurrent.DelegatingSecurityContextExecutorService(
+            Executors.newFixedThreadPool(4));
     try {
       var calls = new ArrayList<Future<ReservationResponse>>();
       for (int i = 0; i < 4; i++) calls.add(workers.submit(() -> service.create(request, key)));

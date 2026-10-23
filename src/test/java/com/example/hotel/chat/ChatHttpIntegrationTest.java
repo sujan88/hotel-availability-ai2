@@ -21,6 +21,8 @@ import tools.jackson.databind.ObjectMapper;
 /** Real OpenAI HTTP adapter, real tool callback and real hotel HTTP adapter, all local. */
 @SpringBootTest(properties = {"spring.ai.openai.api-key=test-key"})
 @AutoConfigureMockMvc
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class ChatHttpIntegrationTest {
   static final ObjectMapper JSON = new ObjectMapper();
   static final AtomicInteger models = new AtomicInteger();

@@ -27,6 +27,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
       "spring.ai.tools.limits.max-total-tool-calls=1",
       "spring.ai.tools.limits.max-calls-per-tool-default=5"
     })
+@org.springframework.security.test.context.support.WithMockUser(
+    authorities = {"HOTEL_READ", "RESERVATION_CREATE"})
 class NativeTotalLimitIntegrationTest {
   @TestConfiguration(proxyBeanMethods = false)
   static class Models {
