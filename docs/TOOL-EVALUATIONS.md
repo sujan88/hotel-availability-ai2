@@ -112,7 +112,7 @@ RUN_LIVE_TOOL_EVALS=false mvn \
   -Dtest=ToolSelectionEvaluatorTest,ToolSelectionCaptureIntegrationTest test
 ```
 
-Verification: 110 local Java tests passed with zero failures/errors, and the optional live-model suite was skipped.
+Verification: 119 local Java tests passed with zero failures/errors, and the optional live-model suite was skipped (including the authentication-mode tests).
 
 No valid OpenAI key or running backend is needed. These tests use a scripted localhost model
 HTTP server and real Spring AI serialization. They validate grading, schema exposure, one-call

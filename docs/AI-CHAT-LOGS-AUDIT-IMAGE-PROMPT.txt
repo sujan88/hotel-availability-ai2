@@ -1,0 +1,67 @@
+Use case: infographic-diagram.
+Create a NEW educational infographic, not a revision of the security content. The supplied image is STYLE REFERENCE ONLY: matching clean black-and-white study sheet, US Letter portrait ratio, white background, thin black borders, compact readable text, numbered sections, diagrams and small monospace code blocks. Save ink: no filled panel backgrounds, no dark code blocks, minimal icons. Flat page, no paper mockup. Safe print margins. Use large enough text to read when printed. Title: "AI CHAT LOGS & AUDIT". Subtitle: "Follow one request: Chat → LLM → Tool → Service → Hotel API".
+Content must accurately explain this real Java Spring AI project. Arrange the following into about five clearly separated numbered panels and a small footer. Prioritize clarity, diagrams and whitespace; do not add unsupported frameworks or tables.
+
+1. "ONE REQUEST, ONE TRACE" 
+Top flow diagram: User/Postman POST /api/chat → ChatService → Spring AI ToolCallingAdvisor loop.
+Inside loop: AuditModelAdvisor → OpenAI LLM → requested tool → @Tool + ToolAudit → Integration service → Resilient gateway → RestClient + AuditHttpInterceptor → Hotel API :9090.
+Return arrow from tool result back to LLM then final answer back to ChatService/User. Clearly label "LLM requests a tool; Spring AI executes Java." "A tool search usually needs two model calls: choose tool, then answer."
+Small ID table:
+conversationId | groups multiple user requests; reused
+turnId | one user message + processing; new per request
+traceId | correlate all logs for one request; new per request
+modelCallId / toolCallId / downstreamCallId | identify individual operations
+Note "conversationId alone does not provide chat memory."
+
+2. "WHERE EACH LOG STARTS" table three columns: Owner | Events / prefix | What it tells you.
+ChatService | [CHAT] user.message.received / turn.completed | request start/end, total tokens, toolsCalled
+AuditModelAdvisor | [MODEL] model.call.started / model.call | availableTools, requestedTools, model, tokens, latency
+HotelTools / ReservationTools → ToolAudit | [TOOL] tool.started / tool.call | actual toolName, status, errorCode, latency
+AvailabilityService / ReservationService | [SERVICE] service.call | integration method entered
+AuditHttpInterceptor | [EXTERNAL API] downstream.started / downstream.call | each HTTP attempt, httpStatus, retryCount, circuitState
+Caption "Requested tools ≠ executed tools. Check tool.call for the actual result."
+Small code snippets:
+"@Tool method"
+return audit.log("searchAvailability",
+    () -> service.search(request));
+"Integration service"
+AuditStore.serviceCall("AvailabilityService.search");
+
+3. "AUDITSTORE WRITES; CONTEXT CONNECTS"
+Diagram all layer owners → AuditStore → branch A Console (short uppercase prefixes); branch B logs/ai-chat.jsonl (structured JSON); branch C reservation_audit DB (reservation write outcomes only).
+Label branch C with RESERVATION_ACCEPTED / RESERVATION_CONFIRMED / RESERVATION_CANCELLED.
+Caption: "AuditModelAdvisor observes model calls. AuditStore is the shared writer."
+Caption: "Logger name may say AuditStore for every layer. Read event + toolName."
+Context strip: "AuditContext holds IDs during synchronous work. Async gateways pass the frame explicitly. HTTP sends X-Trace-Id and X-Tool-Call-Id."
+Do not claim external systems automatically ingest or export these IDs or OpenTelemetry tracing.
+"AI audit events exclude prompts, guest details, payment tokens and raw payloads."
+"Search → logs only. Reservation write outcome → logs + one audit table."
+
+4. "READ A SUCCESSFUL SEARCH" compact chronological log example, label shortened illustrative lines, all share traceId=T1 (T1 is a teaching alias, real trace IDs are 32 hex chars). Show:
+[CHAT] user.message.received traceId=T1
+[MODEL] model.call requestedTools=[searchAvailability] traceId=T1
+[TOOL] tool.started toolName=searchAvailability traceId=T1
+[SERVICE] service.call operation=AvailabilityService.search traceId=T1
+[EXTERNAL API] downstream.call httpStatus=200 attemptNo=1 traceId=T1
+[TOOL] tool.call toolName=searchAvailability status=COMPLETED traceId=T1
+[MODEL] model.call requestedTools=[] traceId=T1
+[CHAT] turn.completed toolsCalled=[searchAvailability] traceId=T1
+Caption "Start events omitted here for space. A retry adds another HTTP attempt; it is not another LLM tool request."
+
+5. "INVESTIGATE IN THREE STEPS"
+1 Copy traceId from chat response.
+2 From AI2 folder:
+python3 scripts/read_trace.py --trace-id YOUR_TRACE_ID
+Only completed/rejected tool records:
+python3 scripts/read_trace.py --trace-id YOUR_TRACE_ID --event tool.call
+3 For durable reservation outcomes:
+GET /api/audit/events?traceId=YOUR_TRACE_ID
+Label "This endpoint reads DB business events, not the full log file. Empty after a search is expected."
+Small symptom → inspect list:
+Wrong tool → [MODEL] requestedTools, then [TOOL] toolName
+Timeout / retries → [EXTERNAL API] attemptNo, errorCode
+Open circuit → resilience circuit logs; HTTP call may never start
+Denied / duplicate / tool limit → [TOOL] REJECTED / [AUDIT]; no backend side effect
+Audit DB failure → business.event persisted=false; auditComplete=false
+Footer mental model: "MODEL = intent · TOOL = execution · API = attempt · DB = business outcome".
+No new features, no code changes implied, do not invent a RAG layer or payment audit tables. Render precise technical names, arrows, table rows, code legibly.

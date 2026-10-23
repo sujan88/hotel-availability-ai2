@@ -9,11 +9,17 @@ Java 17+, Maven 3.9+, Spring Boot 4.1.1, Spring AI 2.0.1, Resilience4j 2.4.0 (Bo
 
 This project implements three separate protections: Spring AI native limits control tool-call quantity; orchestration fingerprints reject identical reservation write calls in the current execution; backend idempotency prevents repeated HTTP requests from creating another booking. Native tool counts still belong to Spring AI. No custom model-call, token/cost or overall execution budget has been added. The original Spring AI 1.1 project is a separate copy.
 
-## Security flow: US Letter PNG
+## Basic Auth security flow: US Letter PNG
 
 Open [Spring Security + LLM tools](docs/SPRING-SECURITY-LLM-FLOW-US-LETTER.png): Basic Auth,
 username lookup, password verification, loaded GrantedAuthority values, per-request tools,
 and service authorization with @PreAuthorize. Print on Letter paper in portrait, fit to page.
+
+## Logs and audit: printable PNG
+
+Open [AI chat logs and audit](docs/AI-CHAT-LOGS-AUDIT-US-LETTER-BW.png) for a black-and-white
+Letter portrait page: layer-by-layer logging, correlation IDs, model versus tool versus HTTP
+attempts, the shared AuditStore, and investigation commands. Print in portrait, fit to page.
 
 ## Two-page interview recall guide
 
@@ -23,10 +29,29 @@ production boundaries. Mental model: **model proposes; application authorizes; b
 
 ## Authentication and dynamic tools
 
-**Chat and direct reservation requests now require Basic Auth.** Before starting AI2, set
+**Choose Basic Auth or OAuth 2.0 JWT bearer tokens using `AI_AUTH_MODE`.** Basic Auth is the
+default (`AI_AUTH_MODE=basic`). Before starting AI2 in Basic mode, set
 `AI_BOOKER_PASSWORD` to your own local password. In Postman choose Authorization -> Basic Auth,
 username `booker`, and that password. Reader and chat-only accounts can be configured separately.
 An unset account password disables that account; there are no default credentials.
+
+For OAuth mode, configure your identity provider and restart:
+
+```bash
+export AI_AUTH_MODE=oauth2
+export OAUTH_ISSUER_URI='https://your-identity-provider.example/your-issuer'
+export OAUTH_AUDIENCE='hotel-ai2'
+# Default top-level token claim: permissions (exact HOTEL_READ / RESERVATION_CREATE names).
+export OAUTH_AUTHORITIES_CLAIM='permissions'
+mvn spring-boot:run
+```
+
+Replace the issuer and audience with your provider's actual values. Obtain a signed access
+token from that provider, then choose Postman **Authorization → Bearer Token**. OAuth mode
+disables Basic authentication and local accounts; missing issuer/audience or an unknown mode
+fails startup. No token issuer or login UI is bundled. See [OAuth setup and Postman cases](docs/AUTHENTICATION.md).
+The table below describes Basic accounts; OAuth users receive equivalent permissions from
+their validated access tokens. Booking still requires a valid Idempotency-Key.
 
 | Account | Tools |
 |---|---|
@@ -606,7 +631,7 @@ The six Python tests additionally verify replay across a fresh provider process 
 
 ## Latest validation
 
-- `mvn clean verify`: **110 local Java tests passed**, zero failures/errors; optional live-model suite skipped; executable JAR built.
+- `mvn clean verify`: **119 local Java tests passed**, zero failures/errors; optional live-model suite skipped; executable JAR built. This includes Basic and OAuth2 authentication, signed-token validation and permission tests.
 - `python3 -m unittest discover -s mock -p 'test_*.py'`: **6 Python tests passed**, including persistent replay and concurrent provider processes.
 - All writes used isolated local mock databases; no live reservation or OpenAI call was made.
 
@@ -708,7 +733,7 @@ Read the application in this order:
 | `reservation/WriteFingerprintingToolCallingManager` | Reject duplicate writes before Spring AI dispatches them; native limits stay in Spring AI |
 | `reservation/ReservationController` | Direct create/status APIs for deterministic testing without a model |
 | `config/HotelApiConfig` | HTTP client and separate bounded availability/reservation executors |
-| `security/ToolExposureService`, `UserContext`, `config/SecurityConfig` | Per-request tool policy, authenticated permissions and local Basic Auth |
+| `security/ToolExposureService`, `UserContext`, `config/SecurityConfig` | Per-request tool policy, authenticated permissions and selectable Basic / OAuth2 authentication |
 | `config/ChatConfig`, `ResilienceLogging` | Model/tool configuration and resilience event logging |
 | `audit/ToolAudit` | Called directly by each tool to log start, typed result and completion |
 | `audit/AuditModelAdvisor` | Logs each model call inside the native tool loop |

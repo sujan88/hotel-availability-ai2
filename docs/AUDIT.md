@@ -1,6 +1,7 @@
 # Logs first, one small business-audit table
 
-Chat/reservation endpoints now require Basic Auth and select tools from server-authenticated
+Chat/reservation endpoints require Basic Auth (default) or OAuth2 bearer tokens, selected by
+`AI_AUTH_MODE`; see [authentication setup](AUTHENTICATION.md). They select tools from server-authenticated
 permissions. See [TOOL-PERMISSIONS.md](TOOL-PERMISSIONS.md) before using the chat examples below.
 The audit-read API keeps its separate loopback / optional Bearer-token policy.
 

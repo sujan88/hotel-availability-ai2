@@ -3,7 +3,7 @@
 The shared ChatClient has no default tools. Every request gets its own allowed tools:
 
 ```text
-Postman Basic Auth -> Spring Security validates the account
+Postman Basic Auth or OAuth2 Bearer -> Spring Security authenticates the request
   -> ChatService -> UserContext.current()
   -> ToolExposureService.toolsFor(user, hasBookingKey)
   -> prompt.tools(allowedTools)
@@ -11,7 +11,11 @@ Postman Basic Auth -> Spring Security validates the account
 ```
 
 No role, permission or username from the JSON body, chat message or X-Role header is trusted.
-This adds no user tables. Demo accounts are held in memory and passwords are hashed with BCrypt.
+This adds no user tables. In default Basic mode, demo accounts are held in memory and passwords
+are hashed with BCrypt. Set `AI_AUTH_MODE=oauth2` to authenticate signed access tokens from your
+identity provider instead. See [authentication modes and OAuth Postman setup](AUTHENTICATION.md).
+Both modes use the same permission policy; OAuth users receive authorities from the configured
+token claim rather than the Basic account list below.
 
 ## Accounts and policy
 
@@ -31,6 +35,7 @@ In the AI2 terminal, configure the accounts you want, then restart the applicati
 
 ```bash
 export OPENAI_API_KEY='your-valid-openai-key'
+export AI_AUTH_MODE=basic
 export AI_READER_PASSWORD='choose-your-own-reader-password'
 export AI_BOOKER_PASSWORD='choose-your-own-booker-password'
 export AI_CHAT_PASSWORD='choose-your-own-chat-password'
@@ -51,7 +56,7 @@ Import `postman/tool-permissions.postman_collection.json` and set the collection
 `readerPassword`, `bookerPassword`, `chatPassword` to the passwords you configured locally.
 The collection contains no saved passwords and makes no booking write in its normal examples.
 
-For every request to `/api/chat` or `/api/reservations`, use **Authorization -> Basic Auth**:
+In Basic mode, for every request to `/api/chat` or `/api/reservations`, use **Authorization -> Basic Auth**:
 username `reader`, `booker` or `chat`; password from the corresponding environment variable.
 Existing README chat/reservation examples now require this Authorization setting too.
 
@@ -89,7 +94,8 @@ not use these Basic Auth accounts. In Postman keep its request-specific Bearer t
 ## Where to change the policy
 
 - `config/SecurityConfig`: authenticates the demo accounts and assigns permissions. Also protects
-  direct reservation endpoints. Account names are examples; there are no hardcoded passwords.
+  direct reservation endpoints. In OAuth mode it validates JWTs and maps the configured claim
+  to the same authorities. Account names are examples; there are no hardcoded passwords.
 - `security/UserContext`: reads only the authenticated Spring Security identity; copies its
   authorities into an immutable permission set.
 - `security/ToolExposureService`: chooses the tool objects for this request. Additional trusted
@@ -127,10 +133,13 @@ mvn clean verify
 mvn -Dtest=ToolPermissionsIntegrationTest test
 ```
 
-The default suite passes 110 local Java tests, including 12 permission tests; the live-model evaluation suite is skipped unless enabled. Tests use local fake models/backends. They cover real Basic authentication, missing/wrong
+The default suite runs local Java tests; the live-model evaluation suite is skipped unless enabled.
+Tests use local fake models/backends. They cover real Basic authentication, missing/wrong
 credentials, each permission set, the booking-key condition, sequential and concurrent request
 isolation, forged role claims, an unexpected model write, successful authorized booking,
 and tool/service/direct-API bypass denial. No live OpenAI or payment call is made.
+`OAuth2PermissionsIntegrationTest` separately checks signed tokens, invalid signature/issuer/
+audience/timestamps, the same permissions and rejection of Basic Auth in OAuth mode.
 
 References: [Spring Security Basic Authentication](https://docs.spring.io/spring-security/reference/servlet/authentication/passwords/basic.html)
 and [method authorization](https://docs.spring.io/spring-security/reference/servlet/authorization/method-security.html).

@@ -99,7 +99,8 @@ A search writes no audit rows. `/api/audit/events` reads that business table, no
 
 ## Read one search request
 
-Authenticate in Postman with Basic Auth (`reader` or `booker` and your configured password),
+Authenticate in Postman using the configured mode: Basic Auth (`reader` or `booker` and your
+password) or an OAuth2 Bearer access token with `HOTEL_READ` (see [setup](AUTHENTICATION.md)),
 then POST `http://localhost:8080/api/chat`, JSON body:
 
 ```json

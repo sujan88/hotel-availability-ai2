@@ -101,9 +101,17 @@ logging:
   pattern:
     level: "%5p [trace=%X{traceId:-} turn=%X{turnId:-} tool=%X{toolCallId:-}]"
 
-# Accounts are disabled until their password is explicitly configured.
+# Select exactly one authentication mode. Basic accounts need an explicit password.
 app:
   security:
+    mode: ${AI_AUTH_MODE:basic}
     reader-password: ${AI_READER_PASSWORD:}
     booker-password: ${AI_BOOKER_PASSWORD:}
     chat-password: ${AI_CHAT_PASSWORD:}
+    oauth2:
+      issuer-uri: ${OAUTH_ISSUER_URI:}
+      audience: ${OAUTH_AUDIENCE:}
+      # Optional: skip discovery while still validating issuer and audience.
+      jwk-set-uri: ${OAUTH_JWK_SET_URI:}
+      # Top-level claim containing exact permission names, without SCOPE_ or ROLE_ prefixes.
+      authorities-claim: ${OAUTH_AUTHORITIES_CLAIM:permissions}

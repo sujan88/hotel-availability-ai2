@@ -35,6 +35,7 @@ import tools.jackson.databind.ObjectMapper;
     properties = {
       "spring.ai.model.chat=none",
       "spring.ai.openai.api-key=test-key",
+      "app.security.mode=basic",
       "app.security.reader-password=reader-test-password",
       "app.security.booker-password=booker-test-password",
       "app.security.chat-password=chat-test-password"
@@ -151,6 +152,18 @@ class ToolPermissionsIntegrationTest {
                 .contentType("application/json")
                 .content("{\"message\":\"list tools\"}"))
         .andExpect(status().isUnauthorized());
+    verifyNoInteractions(backend);
+  }
+
+  @Test
+  void basicModeDoesNotAcceptBearerTokens() throws Exception {
+    mvc.perform(
+            post("/api/chat")
+                .header("Authorization", "Bearer not-a-basic-credential")
+                .contentType("application/json")
+                .content("{\"message\":\"list tools\"}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(header().string("WWW-Authenticate", "Basic realm=\"hotel-ai2\""));
     verifyNoInteractions(backend);
   }
 
