@@ -9,6 +9,12 @@ Java 17+, Maven 3.9+, Spring Boot 4.1.1, Spring AI 2.0.1, Resilience4j 2.4.0 (Bo
 
 This project implements three separate protections: Spring AI native limits control tool-call quantity; orchestration fingerprints reject identical reservation write calls in the current execution; backend idempotency prevents repeated HTTP requests from creating another booking. Native tool counts still belong to Spring AI. No custom model-call, token/cost or overall execution budget has been added. The original Spring AI 1.1 project is a separate copy.
 
+## Security flow: US Letter PNG
+
+Open [Spring Security + LLM tools](docs/SPRING-SECURITY-LLM-FLOW-US-LETTER.png): Basic Auth,
+username lookup, password verification, loaded GrantedAuthority values, per-request tools,
+and service authorization with @PreAuthorize. Print on Letter paper in portrait, fit to page.
+
 ## Two-page interview recall guide
 
 Read the [visual interview guide](docs/INTERVIEW-GUIDE.pdf): architecture, tool permissions,
